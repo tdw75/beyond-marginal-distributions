@@ -121,10 +121,11 @@ def load_opinion_gpt(model: PreTrainedModel, config: ModelConfig) -> PeftModel:
         model, lora_id.format(adapter=default_adapter), adapter_name=default_adapter
     ).to(config.device)
 
-    for adapter in adapters[1:]:  # all adapters loaded to be accessed as needed
-        adapter_name = replace_adapter_name(adapter, config.base_model_name)
-        logger.info(f"Loading adapter: {adapter_name}")
-        model.load_adapter(lora_id.format(adapter=adapter_name), adapter_name)
+    for adapter in adapters[1:]:
+        # llama has different adapter name for latin america, use canonical 'latin_america' downstream
+        name = replace_adapter_name(adapter, config.base_model_name)
+        logger.info(f"Loading adapter: {adapter}")
+        model.load_adapter(lora_id.format(adapter=name), adapter)
 
     return model
 
@@ -154,8 +155,7 @@ def change_subgroup(
 ) -> tuple[PreTrainedModel | PeftModel, ModelConfig]:
     config.change_subgroup(new_subgroup)
     if config.is_lora:
-        adapter_name = replace_adapter_name(config.subgroup, config.base_model_name)
-        model = change_adapter(model, adapter_name)
+        model = change_adapter(model, config.subgroup)
     if config.is_persona:
         config.system_prompt = build_survey_context_for_persona(config.subgroup)
     return model, config
