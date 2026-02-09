@@ -38,11 +38,12 @@ bias_to_subreddit: dict[AdapterName, str] = {
 adapters: list[AdapterName] = list(bias_to_subreddit.keys())
 
 
-def replace_adapter_name(base_model_name: str, adapter: AdapterName):
+def replace_adapter_name(adapter: AdapterName, base_model_name: str):
     """Convert adapter name to the correct format for the given base model."""
     if base_model_name == "llama" and adapter == "latin_america":
         return "latin_american"
-    return adapter
+    else:
+        return adapter
 
 
 MODEL_DIRECTORY = {
