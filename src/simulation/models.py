@@ -154,7 +154,8 @@ def change_subgroup(
 ) -> tuple[PreTrainedModel | PeftModel, ModelConfig]:
     config.change_subgroup(new_subgroup)
     if config.is_lora:
-        model = change_adapter(model, config.subgroup)
+        adapter_name = replace_adapter_name(config.subgroup, config.base_model_name)
+        model = change_adapter(model, adapter_name)
     if config.is_persona:
         config.system_prompt = build_survey_context_for_persona(config.subgroup)
     return model, config
