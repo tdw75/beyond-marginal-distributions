@@ -34,10 +34,10 @@ def main(
 
     survey_questions = load_survey(experiment, "individual", False)
     survey_flipped = load_survey(experiment, "individual", True)
-    phi_instruct_surveys = run_phi_instruct(
+    opinion_gpt_surveys = run_opinion_gpt(
         survey_questions, survey_flipped, shared_config_vars, run_id
     )
-    opinion_gpt_surveys = run_opinion_gpt(
+    phi_instruct_surveys = run_phi_instruct(
         survey_questions, survey_flipped, shared_config_vars, run_id
     )
     simulated_surveys.update(phi_instruct_surveys)
