@@ -34,7 +34,15 @@ bias_to_subreddit: dict[AdapterName, str] = {
     "old_people": "AskOldPeople",
     # "teenager": "AskTeenagers",
 }
+
 adapters: list[AdapterName] = list(bias_to_subreddit.keys())
+
+
+def replace_adapter_name(base_model_name: str, adapter: AdapterName):
+    """Convert adapter name to the correct format for the given base model."""
+    if base_model_name == "llama" and adapter == "latin_america":
+        return "latin_american"
+    return adapter
 
 
 MODEL_DIRECTORY = {
@@ -113,8 +121,9 @@ def load_opinion_gpt(model: PreTrainedModel, config: ModelConfig) -> PeftModel:
     ).to(config.device)
 
     for adapter in adapters[1:]:  # all adapters loaded to be accessed as needed
-        logger.info(f"Loading adapter: {adapter}")
-        model.load_adapter(lora_id.format(adapter=adapter), adapter)
+        adapter_name = replace_adapter_name(adapter, config.base_model_name)
+        logger.info(f"Loading adapter: {adapter_name}")
+        model.load_adapter(lora_id.format(adapter=adapter_name), adapter_name)
 
     return model
 
@@ -157,9 +166,19 @@ def change_adapter(model: PeftModel, target_adapter: str) -> PeftModel:
     return model
 
 
-PHI_TOKENIZER_TEMPLATE = """
-{% for message in messages %}\n{% if message['role'] == 'user' %}\n{{ '<|user|>\n' + message['content'] + eos_token }}\n{% elif message['role'] == 'system' %}\n{{ '<|system|>\n' + message['content'] + eos_token }}\n{% elif message['role'] == 'assistant' %}\n{{ '<|assistant|>\n'  + message['content'] + eos_token }}\n{% endif %}\n{% if loop.last and add_generation_prompt %}\n{{ '<|assistant|>' }}\n{% endif %}\n{% endfor %}
-"""
+PHI_TOKENIZER_TEMPLATE = (
+    "{% for message in messages %}\n"
+    "{% if message['role'] == 'user' %}\n"
+    "{{ '<|user|>\n' + message['content'] + eos_token }}\n"
+    "{% elif message['role'] == 'system' %}\n"
+    "{{ '<|system|>\n' + message['content'] + eos_token }}"
+    "\n{% elif message['role'] == 'assistant' %}\n"
+    "{{ '<|assistant|>\n'  + message['content'] + eos_token }}\n"
+    "{% endif %}\n{% if loop.last and add_generation_prompt %}\n"
+    "{{ '<|assistant|>' }}\n"
+    "{% endif %}\n"
+    "{% endfor %}"
+)
 
 
 LLAMA2_TOKENIZER_TEMPLATE = (
