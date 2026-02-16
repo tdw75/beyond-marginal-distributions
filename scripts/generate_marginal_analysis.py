@@ -17,7 +17,6 @@ from src.analysis.aggregations import (
 )
 from src.analysis.io import create_subdirectory
 from src.analysis.marginals import (
-    generate_cross_comparison,
     save_response_distributions,
     generate_modal_collapse_analysis,
     generate_invalid_response_analysis,
@@ -116,11 +115,6 @@ def main(experiment_name: str, root_directory: str = ""):
         print(
             f"Finished model comparison metrics for {grouping}, {time.time() - start:.1f} seconds"
         )
-        # if grouping != "category":
-        #     generate_cross_comparison(
-        #         data_dict, response_map, graph_directory, grouping
-        #     )
-
 
 if __name__ == "__main__":
     fire.Fire(main)

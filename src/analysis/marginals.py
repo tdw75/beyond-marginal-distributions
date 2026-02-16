@@ -8,7 +8,7 @@ import pandas as pd
 from src.analysis.aggregations import DataDict, steered_models
 from src.analysis.io import save_latex_table
 from src.analysis.metrics import (
-    calculate_misalignment,
+    calculate_dissimilarity,
     calculate_variance,
     prepare_distributions_single,
 )
@@ -25,8 +25,8 @@ def compare_marginal_response_dists(
 ):
 
     # todo: rename to dissimilarity
-    misalignment = {
-        n: get_metric(d, calculate_misalignment, response_map)
+    dissimilarity = {
+        n: get_metric(d, calculate_dissimilarity, response_map)
         for n, d in data_dict.items()
     }
     variances = {n: get_variance(d, response_map) for n, d in data_dict.items()}
@@ -34,8 +34,8 @@ def compare_marginal_response_dists(
     flatten_to_df_long(variances).to_csv(
         os.path.join(metric_directory, f"{grouping}-variances.csv")
     )
-    flatten_to_df_long(misalignment).to_csv(
-        os.path.join(metric_directory, f"{grouping}-misalignment.csv")
+    flatten_to_df_long(dissimilarity).to_csv(
+        os.path.join(metric_directory, f"{grouping}-dissimilarity.csv")
     )
 
 
@@ -145,7 +145,7 @@ def generate_cross_comparison(
     graph_directory: str,
     grouping: str,
 ):
-    name, fn, cmap = ("Dissimilarity", calculate_misalignment, "Blues")
+    name, fn, cmap = ("Dissimilarity", calculate_dissimilarity, "Blues")
     cross = get_cross_distance(data_dict, fn, response_map)
     plot_distance_heatmap(
         cross, name, cmap=cmap, save_directory=graph_directory, grouping=grouping

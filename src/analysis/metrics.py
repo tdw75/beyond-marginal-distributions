@@ -151,7 +151,7 @@ def total_variation_distance(p: np.ndarray, q: np.ndarray) -> float:
     return 0.5 * np.abs(p - q).sum()
 
 
-def calculate_misalignment(
+def calculate_dissimilarity(
     model_responses: pd.DataFrame,
     true_responses: pd.DataFrame,
     response_maps: dict[QNum, ResponseMap],
