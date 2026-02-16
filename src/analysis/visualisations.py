@@ -9,6 +9,9 @@ import seaborn as sns
 from matplotlib.axes import Axes
 from matplotlib.ticker import MaxNLocator
 
+from src.analysis.io import RENAME_MAP
+from src.utils import reformat_index
+
 
 def configure_matplotlib_style():
     """Configure matplotlib for publication-quality figures."""
@@ -47,14 +50,15 @@ configure_matplotlib_style()
 
 COLORS = ["#2E86AB", "#F18F01", "#06A77D", "#A23B72"]  # Blue, Orange, Teal, Purple
 MARKERS = ["o", "D", "^", "s"]  # Circle, Diamond, Triangle, Square
-MARKER_SIZE = 7
+MARKER_SIZE = 6
 EDGE_WIDTH = 0.8
-JITTER = 0.1
+JITTER = 0.2
 TICK_FONT_SIZE = 14
 
 
 def plot_model_metric_comparison(
     df: pd.DataFrame,
+    bounds: tuple[pd.DataFrame, pd.DataFrame],
     metric_name: str = "Value",
     save_directory: str = None,
     grouping: str = "",
@@ -63,10 +67,11 @@ def plot_model_metric_comparison(
 ):
     """Plot a single metric comparison chart."""
     df = df.rename(columns=RENAME_MAP, errors="ignore")
+    bounds = tuple(b.rename(columns=RENAME_MAP, errors="ignore") for b in bounds)
     groups = df.index
 
     fig, ax = plt.subplots(figsize=(8, len(groups) * subplot_scale))
-    _plot_metric_on_axis(ax, df, metric_name, xmax)
+    _plot_metric_on_axis(ax, df, *bounds, metric_name, xmax)
     _add_panel_label(ax, "topic")  # todo: hardcoded
     plt.tight_layout()
 
@@ -82,6 +87,8 @@ def plot_model_metric_comparison(
 def plot_model_metric_comparison_stacked(
     df1: pd.DataFrame,
     df2: pd.DataFrame,
+    bounds1: tuple[pd.DataFrame, pd.DataFrame],
+    bounds2: tuple[pd.DataFrame, pd.DataFrame],
     metric_name: str,
     save_directory: str = None,
     subplot_scale: float = 0.35,
@@ -90,6 +97,8 @@ def plot_model_metric_comparison_stacked(
     """Plot two metric comparison charts stacked vertically with shared x-axis and legend."""
     df1 = df1.rename(columns=RENAME_MAP, errors="ignore")
     df2 = df2.rename(columns=RENAME_MAP, errors="ignore")
+    bounds1 = tuple(b.rename(columns=RENAME_MAP, errors="ignore") for b in bounds1)
+    bounds2 = tuple(b.rename(columns=RENAME_MAP, errors="ignore") for b in bounds2)
 
     n_groups_1 = len(df1.index)
     n_groups_2 = len(df2.index)
@@ -104,10 +113,10 @@ def plot_model_metric_comparison_stacked(
     )
 
     _plot_metric_on_axis(
-        ax1, df1, metric_name, xmax, show_legend=True, show_xlabel=False
+        ax1, df1, *bounds1, metric_name, xmax, show_legend=True, show_xlabel=False
     )
     _plot_metric_on_axis(
-        ax2, df2, metric_name, xmax, show_legend=False, show_xlabel=True
+        ax2, df2, *bounds2, metric_name, xmax, show_legend=False, show_xlabel=True
     )
 
     _add_panel_label(ax1, "subgroup")  # todo: hardcoded
@@ -127,6 +136,8 @@ def plot_model_metric_comparison_stacked(
 def _plot_metric_on_axis(
     ax: Axes,
     df: pd.DataFrame,
+    lb: pd.DataFrame,
+    ub: pd.DataFrame,
     metric_name: str,
     xmax: float = None,
     show_legend: bool = True,
@@ -138,12 +149,16 @@ def _plot_metric_on_axis(
 
     for i, group in enumerate(groups):
         x = df.loc[group].values
+        lower = lb.loc[group].values
+        upper = ub.loc[group].values
 
         for j, (xi, variant) in enumerate(zip(x, variants)):
             y = i + (j - (len(variants) - 1) / 2) * JITTER
-            ax.plot(
+            xerr = [[xi - lower[j]], [upper[j] - xi]]
+            ax.errorbar(
                 xi,
                 y,
+                xerr=xerr,
                 marker=MARKERS[j],
                 color=COLORS[j],
                 markersize=MARKER_SIZE,
@@ -153,6 +168,9 @@ def _plot_metric_on_axis(
                 label=variant if i == 0 else "",
                 alpha=0.9,
                 zorder=3,  # Ensure markers appear above grid
+                elinewidth=0.3,
+                capsize=3,
+                capthick=0.8,
             )
 
     ax.set_yticks(range(len(groups)))
@@ -160,7 +178,7 @@ def _plot_metric_on_axis(
     ax.margins(y=0.02)
     ax.set_ylim(-0.5, len(groups) - 0.5)
 
-    max_x = df.values.max() * 1.05
+    max_x = ub.values.max() * 1.25
     ax.set_xlim(-0.005, max(max_x, xmax or max_x))
     ax.axvline(0, color="#666666", linestyle="--", linewidth=1, alpha=0.5, zorder=1)
     ax.xaxis.set_major_locator(MaxNLocator(nbins=6, steps=[1, 2, 5, 10]))
@@ -172,7 +190,7 @@ def _plot_metric_on_axis(
     if show_legend:
         legend = ax.legend(
             title="Model",
-            loc="lower left",
+            loc="best",
             frameon=True,
             fancybox=False,
             edgecolor="0.8",
@@ -309,17 +327,3 @@ def _paired_upper_triangle(
 
 def _wrap_labels(labels, width: int):
     return ["\n".join(wrap(label, width)) for label in labels]
-
-
-def reformat_index(index: pd.Index | list) -> pd.Index:
-    if not isinstance(index, pd.Index):
-        index = pd.Index(index)
-    return index.str.replace("_", " ").str.title()
-
-
-RENAME_MAP = {
-    "opinion_gpt": "OpinionGPT",
-    "persona": "Persona Prompting",
-    "base": "Base Phi 3",
-    "true": "True Data",
-}

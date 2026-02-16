@@ -3,9 +3,8 @@ import os
 
 import pandas as pd
 
-from src.analysis.visualisations import RENAME_MAP, reformat_index
 from src.data.variables import QNum, ResponseMap, remap_response_maps
-from src.utils import key_as_int
+from src.utils import key_as_int, reformat_index
 
 
 def create_subdirectory(directory: str, subdirectory: str) -> str:
@@ -33,3 +32,11 @@ def save_latex_table(df: pd.DataFrame, directory: str, name: str, **kwargs):
     df = df.rename(columns=RENAME_MAP, errors="ignore")
     df.index = reformat_index(df.index)
     df.to_latex(os.path.join(directory, name), **kwargs)
+
+
+RENAME_MAP = {
+    "opinion_gpt": "OpinionGPT",
+    "persona": "Persona Prompting",
+    "base": "Base Phi 3",
+    "true": "True Data",
+}
