@@ -178,13 +178,19 @@ def construct_correlation_matrix(means: pd.DataFrame) -> pd.DataFrame:
 
 
 def calculate_correlation_metrics(
-    true_means: np.ndarray, model_means: np.ndarray, iu: np.ndarray
+    true_corr: np.ndarray, model_corr: np.ndarray, iu: np.ndarray
 ) -> dict[str, float]:
-    # fixme: if any question has zero variance across all subgroups, pearsonr fails - handle this
+
+    true_vec = true_corr[iu]
+    model_vec = model_corr[iu]
+
+    is_valid = ~np.isnan(true_vec) & ~np.isnan(model_vec)
+    x, y = true_vec[is_valid], model_vec[is_valid]
+
     corr_metrics = {}
-    r, _ = pearsonr(true_means[iu], model_means[iu])
+    r, _ = pearsonr(x, y)
     corr_metrics["pearson_r"] = r.round(3)
-    corr_metrics["rmse"] = np.round(rmse(true_means[iu], model_means[iu]), 3)
+    corr_metrics["rmse"] = np.round(rmse(x, y), 3)
     return corr_metrics
 
 
