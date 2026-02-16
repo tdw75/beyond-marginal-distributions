@@ -5,10 +5,11 @@ import pandas as pd
 from src.analysis.responses import (
     get_true_responses_for_subgroup,
     get_model_responses_for_subgroup,
+    FrequencyDist,
 )
 from src.data.variables import QNum
 from src.demographics.base import BaseSubGroup
-from src.demographics.config import categories, category_to_question
+from src.demographics.config import categories, category_to_question, dimensions
 from src.simulation.models import AdapterName, ModelName
 
 steered_models = ["opinion_gpt", "persona"]
@@ -39,6 +40,49 @@ def collate_subgroup_data(
         ),
         "base": df_base,
     }
+
+
+def aggregate_distributions(
+    dists: dict[AdapterName, dict[QNum, FrequencyDist]],
+    weights: dict[AdapterName, float] | None = None,
+) -> dict[QNum, FrequencyDist]:
+    """
+    Aggregate response distributions across subgroups for each question,
+    e.g. for each question, calculate the mean distribution across subgroups.
+    returns a dict mapping each question to its aggregated distribution.
+    """
+
+    weights = weights or {adapter: 1 / len(dists) for adapter in dists}
+
+    weight_values = pd.Series(weights).values
+    aggregated = {}
+    for qnum in next(iter(dists.values())).keys():
+        freq_dists = [pd.Series(dists[adapter][qnum]) for adapter in dists]
+        aggregated[qnum] = (
+            pd.concat(freq_dists, axis=1).mul(weight_values).sum(axis=1).to_dict()
+        )
+    return aggregated
+
+
+def aggregate_distributions_by_dimension(
+    response_dists: dict[AdapterName, dict[QNum, FrequencyDist]],
+    dimension_weights: dict[str, dict[AdapterName, float]],
+) -> dict[str, dict[QNum, FrequencyDist]]:
+    """
+    Aggregate subgroup response distributions by dimension,
+    using the provided weights for each subgroup within each dimension.
+    """
+
+    # todo: add weights
+    # todo: incorporate into generate_marginals
+    aggregated = {}
+    for dim, subgroups in dimensions.items():
+        subgroups = [s.ADAPTER for s in subgroups]
+        dimension_dists = {sg: response_dists[sg] for sg in subgroups}
+        aggregated[dim] = aggregate_distributions(
+            dimension_dists, dimension_weights[dim]
+        )
+    return aggregated
 
 
 def aggregate_by_category(
