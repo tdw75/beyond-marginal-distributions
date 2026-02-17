@@ -12,6 +12,7 @@ from src.analysis.metrics import (
     calculate_variance,
     prepare_distributions_single,
 )
+from src.analysis.responses import FrequencyDist
 from src.analysis.visualisations import plot_distance_heatmap
 from src.data.variables import QNum, ResponseMap
 from src.simulation.models import ModelName, AdapterName
@@ -23,13 +24,13 @@ def compare_marginal_response_dists(
     metric_directory: str,
     grouping: str,
 ):
-
-    # todo: rename to dissimilarity
-    dissimilarity = {
-        n: get_metric(d, calculate_dissimilarity, response_map)
-        for n, d in data_dict.items()
+    dists = {
+        n: _get_response_distributions(d, response_map) for n, d in data_dict.items()
     }
-    variances = {n: get_variance(d, response_map) for n, d in data_dict.items()}
+    dissimilarity = {
+        n: get_metric(d, calculate_dissimilarity) for n, d in dists.items()
+    }
+    variances = {n: get_variance(d) for n, d in dists.items()}
 
     flatten_to_df_long(variances).to_csv(
         os.path.join(metric_directory, f"{grouping}-variances.csv")
@@ -40,25 +41,23 @@ def compare_marginal_response_dists(
 
 
 def get_metric(
-    dfs: dict[str, pd.DataFrame], metric_fn, response_map: dict[QNum, ResponseMap]
+    dists: dict[ModelName, dict[QNum, FrequencyDist]], metric_fn
 ) -> dict[str, pd.Series]:
     return {
-        "opinion_gpt": pd.Series(
-            metric_fn(dfs["opinion_gpt"], dfs["true"], response_map)
-        ),
-        "persona": pd.Series(metric_fn(dfs["persona"], dfs["true"], response_map)),
-        "base": pd.Series(metric_fn(dfs["base"], dfs["true"], response_map)),
+        "opinion_gpt": pd.Series(metric_fn(dists["opinion_gpt"], dists["true"])),
+        "persona": pd.Series(metric_fn(dists["persona"], dists["true"])),
+        "base": pd.Series(metric_fn(dists["base"], dists["true"])),
     }
 
 
 def get_variance(
-    dfs: dict[str, pd.DataFrame], response_map: dict[QNum, ResponseMap]
+    dists: dict[ModelName, dict[QNum, FrequencyDist]],
 ) -> dict[str, pd.Series]:
     return {
-        "opinion_gpt": pd.Series(calculate_variance(dfs["opinion_gpt"], response_map)),
-        "persona": pd.Series(calculate_variance(dfs["persona"], response_map)),
-        "true": pd.Series(calculate_variance(dfs["true"], response_map)),
-        "base": pd.Series(calculate_variance(dfs["base"], response_map)),
+        "opinion_gpt": pd.Series(calculate_variance(dists["opinion_gpt"])),
+        "persona": pd.Series(calculate_variance(dists["persona"])),
+        "true": pd.Series(calculate_variance(dists["true"])),
+        "base": pd.Series(calculate_variance(dists["base"])),
     }
 
 

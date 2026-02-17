@@ -113,12 +113,13 @@ def get_response_distribution_weighted(
 
         if not is_include_invalid:
             support = [x for x in support if x > -1]
-            mask = observations > -1
-            observations = observations[mask]
-            weights = weights[mask]
+            is_valid = observations > -1
+            observations = observations[is_valid]
+            weights_masked = weights[is_valid]
+        else:
+            weights_masked = weights
 
-        # counts = observations.value_counts(normalize=is_normalize, sort=False)
-        counts = get_weighted_value_counts(observations, weights, is_normalize)
+        counts = get_weighted_value_counts(observations, weights_masked, is_normalize)
         counts = counts.reindex(support, fill_value=0)
         dists[qnum] = {
             int(k): float(v) if is_normalize else int(v) for k, v in counts.items()
