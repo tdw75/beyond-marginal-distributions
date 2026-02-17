@@ -66,7 +66,7 @@ def main(experiment_name: str, root_directory: str = ""):
 
     sim["subgroup"].fillna("none", inplace=True)
     base = get_base_model_responses(sim[sim["subgroup"] == "none"], all_qnums)
-    print(f"Loaded data, {time.time() - start} seconds")
+    print(f"Loaded data, {time.time() - start:.1f} seconds")
     subgroup_data: DataDict = {
         n: collate_subgroup_data(true, sim, base, s, all_qnums)
         for n, s in subgroups.items()
@@ -76,7 +76,7 @@ def main(experiment_name: str, root_directory: str = ""):
         for n, s in dimensions.items()
     }
     category_data = aggregate_by_category(subgroup_data, base, true)
-    print(f"Aggregated data, {time.time() - start} seconds")
+    print(f"Aggregated data, {time.time() - start:.1f} seconds")
     metrics_directory = create_subdirectory(simulation_directory, "metrics")
     data_directory = create_subdirectory(simulation_directory, "data")
     graph_directory = create_subdirectory(simulation_directory, "graphs")
@@ -88,11 +88,11 @@ def main(experiment_name: str, root_directory: str = ""):
     generate_modal_collapse_analysis(
         subgroup_data, base, metrics_directory, latex_directory
     )
-    print(f"Finished modal collapse analysis, {time.time() - start} seconds")
+    print(f"Finished modal collapse analysis, {time.time() - start:.1f} seconds")
     generate_invalid_response_analysis(
         subgroup_data, metrics_directory, latex_directory
     )
-    print(f"Finished invalid response analysis, {time.time() - start} seconds")
+    print(f"Finished invalid response analysis, {time.time() - start:.1f} seconds")
     generate_invalid_response_analysis(
         category_data, metrics_directory, latex_directory
     )
@@ -114,12 +114,12 @@ def main(experiment_name: str, root_directory: str = ""):
             data_dict, response_map, metrics_directory, grouping
         )
         print(
-            f"Finished model comparison metrics for {grouping}, {time.time() - start} seconds"
+            f"Finished model comparison metrics for {grouping}, {time.time() - start:.1f} seconds"
         )
-        if grouping != "category":
-            generate_cross_comparison(
-                data_dict, response_map, graph_directory, grouping
-            )
+        # if grouping != "category":
+        #     generate_cross_comparison(
+        #         data_dict, response_map, graph_directory, grouping
+        #     )
 
 
 if __name__ == "__main__":

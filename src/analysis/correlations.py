@@ -51,11 +51,10 @@ def compare_correlation_structures(
             )
 
         true = np.array(corr_matrices["true"])
-        iu = get_upper_triangle_from_dim(true.shape[1])
         metrics[name] = {}
         for model in steered_models:
             metrics[name][model] = calculate_correlation_metrics(
-                true, np.array(corr_matrices[model]), iu
+                true, np.array(corr_matrices[model])
             )
     return metrics
 
@@ -94,14 +93,11 @@ def lower_bound(filename: str, root_directory: str = "../data_files") -> tuple:
             index_col=0,
         )
         corr_wvs = np.array(construct_correlation_matrix(means))
-        iu = get_upper_triangle_from_dim(corr_wvs.shape[1])
 
         for i in range(1000):
             means_shuffle = _shuffle_subgroups(means)
             corr_shuffle = construct_correlation_matrix(means_shuffle)
-            metrics[i] = calculate_correlation_metrics(
-                corr_wvs, np.array(corr_shuffle), iu
-            )
+            metrics[i] = calculate_correlation_metrics(corr_wvs, np.array(corr_shuffle))
 
         metrics_df = pd.DataFrame(metrics).T
 
@@ -120,7 +116,7 @@ def upper_bound(
 
     for grouping in ["question", "category"]:
         metrics = {}
-        for i in range(1000):
+        for i in range((B := 1000)):
             half_1, half_2 = split_true_data(subgroup_data)
             metrics[i] = split_half_analysis(
                 half_1, half_2, diameters, minimums, grouping
@@ -133,7 +129,7 @@ def upper_bound(
 
 
 @lru_cache(None)
-def get_upper_triangle_from_dim(n: int):
+def get_upper_triangle_from_dim(n: int) -> tuple[np.ndarray, np.ndarray]:
     """Return upper-triangle indices for an n x n matrix (k=1), cached by n."""
     return np.triu_indices(n, k=1)
 
@@ -166,10 +162,7 @@ def split_half_analysis(
     corr_1 = np.array(construct_correlation_matrix(means_1))
     corr_2 = np.array(construct_correlation_matrix(means_2))
 
-    assert corr_1.shape == corr_2.shape
-    iu = get_upper_triangle_from_dim(means_1.shape[1])
-
-    return calculate_correlation_metrics(corr_1, corr_2, iu)
+    return calculate_correlation_metrics(corr_1, corr_2)
 
 
 def construct_correlation_matrix(means: pd.DataFrame) -> pd.DataFrame:
@@ -178,14 +171,39 @@ def construct_correlation_matrix(means: pd.DataFrame) -> pd.DataFrame:
 
 
 def calculate_correlation_metrics(
-    true_means: np.ndarray, model_means: np.ndarray, iu: np.ndarray
+    true_corr: np.ndarray, model_corr: np.ndarray
 ) -> dict[str, float]:
-    # fixme: if any question has zero variance across all subgroups, pearsonr fails - handle this
+
+    def _is_no_nans(m1: np.ndarray, m2: np.ndarray) -> bool:
+        return ~np.isnan(m1).all(axis=1) & ~np.isnan(m2).all(axis=1)
+
+    valid_idx = _is_no_nans(true_corr, model_corr)
+    true = true_corr[np.ix_(valid_idx, valid_idx)]
+    model = model_corr[np.ix_(valid_idx, valid_idx)]
+
+    assert true.shape == model.shape, "Correlation matrices must have the same shape"
+    assert _is_corr(true), "true_corr is not a valid correlation matrix"
+    assert _is_corr(model), "model_corr is not a valid correlation matrix"
+
+    iu = get_upper_triangle_from_dim(true.shape[1])
+    x, y = true[iu], model[iu]
+
     corr_metrics = {}
-    r, _ = pearsonr(true_means[iu], model_means[iu])
+    r, _ = pearsonr(x, y)
     corr_metrics["pearson_r"] = r.round(3)
-    corr_metrics["rmse"] = np.round(rmse(true_means[iu], model_means[iu]), 3)
+    corr_metrics["rmse"] = np.round(rmse(x, y), 3)
     return corr_metrics
+
+
+def _is_corr(matrix: np.ndarray) -> bool:
+    """Check if a matrix is a valid correlation matrix (symmetric, ones on diagonal, square)."""
+    if matrix.shape[0] != matrix.shape[1]:  # square
+        return False
+    if not np.allclose(matrix, matrix.T):  # symmetric
+        return False
+    if not np.allclose(np.diag(matrix), 1):  # ones on diagonal
+        return False
+    return True
 
 
 def get_category_means(question_means: pd.DataFrame) -> pd.DataFrame:
