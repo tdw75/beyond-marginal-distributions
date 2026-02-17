@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 
 import fire
 import numpy as np
@@ -26,6 +27,7 @@ from src.simulation.experiment import load_experiment
 
 
 def main(experiment_name: str, root_directory: str = ""):
+    start = time.time()
     experiment = load_experiment(experiment_name, root_directory)
     experiment.files["directory"] = os.path.join(
         root_directory, experiment.files["directory"]
@@ -49,11 +51,11 @@ def main(experiment_name: str, root_directory: str = ""):
         experiment_name,
         experiment.files["directory"],
     )
-    print("Correlation metrics computed.")
+    print(f"Computed correlation, {time.time() - start:.1f} seconds")
     lb = lower_bound(experiment_name, experiment.files["directory"])
-    print("Lower bound computed.")
+    print(f"Computed lower bound, {time.time() - start:.1f} seconds")
     ub = upper_bound(diameters, minimums, subgroup_data)
-    print("Upper bound computed.")
+    print(f"Computed upper bound, {time.time() - start:.1f} seconds")
     for grouping, metrics in corr_metrics.items():
         metrics["Lower"] = lb[0][grouping]
         metrics["Upper"] = ub[0][grouping]
@@ -69,5 +71,4 @@ def main(experiment_name: str, root_directory: str = ""):
 
 
 if __name__ == "__main__":
-    # fire.Fire(main)
-    main("thesis", "..")
+    fire.Fire(main)
