@@ -15,7 +15,7 @@ from src.simulation.experiment import load_experiment, Experiment
                     "variables": "sample_variables.csv",
                     "subset": "unit_test_subset.json",
                 },
-                "simulation_params": {
+                "simulation": {
                     "sample_size": 11,
                     "batch_size": 11,
                     "decoding_style": "unconstrained",
@@ -33,7 +33,7 @@ from src.simulation.experiment import load_experiment, Experiment
                     "variables": "sample_variables.csv",
                     "subset": "final_subset.json",
                 },
-                "simulation_params": {
+                "simulation": {
                     "sample_size": 2000,
                     "batch_size": 32,
                     "decoding_style": "unconstrained",
