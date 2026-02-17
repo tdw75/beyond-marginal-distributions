@@ -1,3 +1,5 @@
+import pandas as pd
+
 from src.data.variables import QNum, ResponseMap
 
 
@@ -13,3 +15,9 @@ def key_as_int(response_map: dict[QNum, ResponseMap]) -> dict:
         qnum: {int(k): v for k, v in resp.items()}
         for qnum, resp in response_map.items()
     }
+
+
+def reformat_index(index: pd.Index | list) -> pd.Index:
+    if not isinstance(index, pd.Index):
+        index = pd.Index(index)
+    return index.str.replace("_", " ").str.title()
