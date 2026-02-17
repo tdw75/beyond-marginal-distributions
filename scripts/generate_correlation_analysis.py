@@ -27,6 +27,9 @@ from src.simulation.experiment import load_experiment
 
 def main(experiment_name: str, root_directory: str = ""):
     experiment = load_experiment(experiment_name, root_directory)
+    experiment.files["directory"] = os.path.join(
+        root_directory, experiment.files["directory"]
+    )
 
     np.random.seed(experiment.setup["random_seed"])
     response_maps = load_response_maps(experiment.files["directory"])
@@ -66,4 +69,5 @@ def main(experiment_name: str, root_directory: str = ""):
 
 
 if __name__ == "__main__":
-    fire.Fire(main)
+    # fire.Fire(main)
+    main("thesis", "..")

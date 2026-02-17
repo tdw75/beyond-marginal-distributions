@@ -133,7 +133,7 @@ def upper_bound(
 
 
 @lru_cache(None)
-def get_upper_triangle_from_dim(n: int):
+def get_upper_triangle_from_dim(n: int) -> tuple[np.ndarray, np.ndarray]:
     """Return upper-triangle indices for an n x n matrix (k=1), cached by n."""
     return np.triu_indices(n, k=1)
 
@@ -178,7 +178,7 @@ def construct_correlation_matrix(means: pd.DataFrame) -> pd.DataFrame:
 
 
 def calculate_correlation_metrics(
-    true_corr: np.ndarray, model_corr: np.ndarray, iu: np.ndarray
+    true_corr: np.ndarray, model_corr: np.ndarray, iu: tuple[np.ndarray, np.ndarray]
 ) -> dict[str, float]:
 
     true_vec = true_corr[iu]
