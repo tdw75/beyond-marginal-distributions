@@ -5,7 +5,7 @@ from typing import Callable
 
 import pandas as pd
 
-from src.analysis.aggregations import DataDict, steered_models
+from src.analysis.aggregations import DataDict, steered_models, DistDict
 from src.analysis.io import save_latex_table
 from src.analysis.metrics import (
     calculate_dissimilarity,
@@ -19,14 +19,8 @@ from src.simulation.models import ModelName, AdapterName
 
 
 def compare_marginal_response_dists(
-    data_dict: DataDict,
-    response_map: dict[QNum, ResponseMap],
-    metric_directory: str,
-    grouping: str,
+    dists: DistDict, metric_directory: str, grouping: str
 ):
-    dists = {
-        n: _get_response_distributions(d, response_map) for n, d in data_dict.items()
-    }
     dissimilarity = {
         n: get_metric(d, calculate_dissimilarity) for n, d in dists.items()
     }
@@ -127,7 +121,7 @@ def find_degenerate_questions(
     return degenerate_questions
 
 
-def _get_response_distributions(
+def get_response_distributions(
     dfs: dict[str, pd.DataFrame], response_map: dict[QNum, ResponseMap]
 ):
     return {
@@ -168,21 +162,6 @@ def get_cross_distance(
             ).mean()
 
     return pd.DataFrame(cross).T.round(4)
-
-
-def save_response_distributions(
-    data_dict: DataDict,
-    data_directory: str,
-    response_map: dict[QNum, ResponseMap],
-    grouping: str,
-):
-    dists = {
-        n: _get_response_distributions(d, response_map) for n, d in data_dict.items()
-    }
-    with open(
-        os.path.join(data_directory, f"{grouping}-response-dists.json"), "w"
-    ) as f:
-        json.dump(dists, f)
 
 
 def generate_invalid_response_analysis(

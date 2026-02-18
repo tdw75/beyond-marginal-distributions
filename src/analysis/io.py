@@ -3,6 +3,7 @@ import os
 
 import pandas as pd
 
+from src.analysis.aggregations import DistDict
 from src.analysis.visualisations import RENAME_MAP, reformat_index
 from src.data.variables import QNum, ResponseMap, remap_response_maps
 from src.utils import key_as_int
@@ -33,3 +34,10 @@ def save_latex_table(df: pd.DataFrame, directory: str, name: str, **kwargs):
     df = df.rename(columns=RENAME_MAP, errors="ignore")
     df.index = reformat_index(df.index)
     df.to_latex(os.path.join(directory, name), **kwargs)
+
+
+def save_response_distributions(dists: DistDict, data_directory: str, grouping: str):
+    with open(
+        os.path.join(data_directory, f"{grouping}-response-dists.json"), "w"
+    ) as f:
+        json.dump(dists, f)
