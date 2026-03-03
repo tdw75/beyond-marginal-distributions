@@ -5,60 +5,53 @@ from typing import Callable
 
 import pandas as pd
 
-from src.analysis.aggregations import DataDict, steered_models
+from src.analysis.aggregations import DataDict, steered_models, DistDict
 from src.analysis.io import save_latex_table
 from src.analysis.metrics import (
-    calculate_misalignment,
+    calculate_dissimilarity,
     calculate_variance,
     prepare_distributions_single,
 )
+from src.analysis.responses import FrequencyDist
 from src.analysis.visualisations import plot_distance_heatmap
 from src.data.variables import QNum, ResponseMap
 from src.simulation.models import ModelName, AdapterName
 
 
 def compare_marginal_response_dists(
-    data_dict: DataDict,
-    response_map: dict[QNum, ResponseMap],
-    metric_directory: str,
-    grouping: str,
+    dists: DistDict, metric_directory: str, grouping: str
 ):
-
-    # todo: rename to dissimilarity
-    misalignment = {
-        n: get_metric(d, calculate_misalignment, response_map)
-        for n, d in data_dict.items()
+    dissimilarity = {
+        n: get_metric(d, calculate_dissimilarity) for n, d in dists.items()
     }
-    variances = {n: get_variance(d, response_map) for n, d in data_dict.items()}
+    variances = {n: get_variance(d) for n, d in dists.items()}
 
     flatten_to_df_long(variances).to_csv(
         os.path.join(metric_directory, f"{grouping}-variances.csv")
     )
-    flatten_to_df_long(misalignment).to_csv(
-        os.path.join(metric_directory, f"{grouping}-misalignment.csv")
+    flatten_to_df_long(dissimilarity).to_csv(
+        os.path.join(metric_directory, f"{grouping}-dissimilarity.csv")
     )
 
 
 def get_metric(
-    dfs: dict[str, pd.DataFrame], metric_fn, response_map: dict[QNum, ResponseMap]
+    dists: dict[ModelName, dict[QNum, FrequencyDist]], metric_fn
 ) -> dict[str, pd.Series]:
     return {
-        "opinion_gpt": pd.Series(
-            metric_fn(dfs["opinion_gpt"], dfs["true"], response_map)
-        ),
-        "persona": pd.Series(metric_fn(dfs["persona"], dfs["true"], response_map)),
-        "base": pd.Series(metric_fn(dfs["base"], dfs["true"], response_map)),
+        "opinion_gpt": pd.Series(metric_fn(dists["opinion_gpt"], dists["true"])),
+        "persona": pd.Series(metric_fn(dists["persona"], dists["true"])),
+        "base": pd.Series(metric_fn(dists["base"], dists["true"])),
     }
 
 
 def get_variance(
-    dfs: dict[str, pd.DataFrame], response_map: dict[QNum, ResponseMap]
+    dists: dict[ModelName, dict[QNum, FrequencyDist]],
 ) -> dict[str, pd.Series]:
     return {
-        "opinion_gpt": pd.Series(calculate_variance(dfs["opinion_gpt"], response_map)),
-        "persona": pd.Series(calculate_variance(dfs["persona"], response_map)),
-        "true": pd.Series(calculate_variance(dfs["true"], response_map)),
-        "base": pd.Series(calculate_variance(dfs["base"], response_map)),
+        "opinion_gpt": pd.Series(calculate_variance(dists["opinion_gpt"])),
+        "persona": pd.Series(calculate_variance(dists["persona"])),
+        "true": pd.Series(calculate_variance(dists["true"])),
+        "base": pd.Series(calculate_variance(dists["base"])),
     }
 
 
@@ -128,7 +121,7 @@ def find_degenerate_questions(
     return degenerate_questions
 
 
-def _get_response_distributions(
+def get_response_distributions(
     dfs: dict[str, pd.DataFrame], response_map: dict[QNum, ResponseMap]
 ):
     return {
@@ -145,7 +138,7 @@ def generate_cross_comparison(
     graph_directory: str,
     grouping: str,
 ):
-    name, fn, cmap = ("Dissimilarity", calculate_misalignment, "Blues")
+    name, fn, cmap = ("Dissimilarity", calculate_dissimilarity, "Blues")
     cross = get_cross_distance(data_dict, fn, response_map)
     plot_distance_heatmap(
         cross, name, cmap=cmap, save_directory=graph_directory, grouping=grouping
@@ -169,21 +162,6 @@ def get_cross_distance(
             ).mean()
 
     return pd.DataFrame(cross).T.round(4)
-
-
-def save_response_distributions(
-    data_dict: DataDict,
-    data_directory: str,
-    response_map: dict[QNum, ResponseMap],
-    grouping: str,
-):
-    dists = {
-        n: _get_response_distributions(d, response_map) for n, d in data_dict.items()
-    }
-    with open(
-        os.path.join(data_directory, f"{grouping}-response-dists.json"), "w"
-    ) as f:
-        json.dump(dists, f)
 
 
 def generate_invalid_response_analysis(

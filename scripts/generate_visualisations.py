@@ -28,7 +28,7 @@ def main(experiment_name: str, root_directory: str = ""):
     read_directory = create_subdirectory(simulation_directory, "metrics")
     save_directory = create_subdirectory(simulation_directory, "graphs")
 
-    for metric in ["variances", "misalignment"]:
+    for metric in ["variances", "dissimilarity"]:
         sg_means = load_and_calculate_metric_means(
             os.path.join(read_directory, f"subgroup-{metric}.csv"), "subgroup"
         )
@@ -75,7 +75,7 @@ INDEX_ORDER = {
 
 METRIC_CONFIG = {
     "variances": {"metric_name": "Response Variance", "xmax": 0.15},
-    "misalignment": {"metric_name": "Dissimilarity", "xmax": 0.28},
+    "dissimilarity": {"metric_name": "Dissimilarity", "xmax": 0.28},
 }
 
 GROUPING_CONFIG = {

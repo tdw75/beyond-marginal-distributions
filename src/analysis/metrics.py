@@ -17,45 +17,28 @@ from src.data.variables import ResponseMap, QNum, ordinal_qnums, non_ordinal_qnu
 
 
 def calculate_jensen_shannon(
-    model_responses: pd.DataFrame,
-    true_responses: pd.DataFrame,
-    response_maps: dict[QNum, ResponseMap],
-    **kwargs
+    true_dists: dict[QNum, FrequencyDist],
+    model_dists: dict[QNum, FrequencyDist],
 ) -> dict[QNum, float]:
     """Calculate Jensen-Shannon distance for all questions with a non-ordinal response scale."""
     return _calculate_distance_metric(
-        jensenshannon,
-        non_ordinal_qnums(),
-        model_responses,
-        true_responses,
-        response_maps,
-        **kwargs
+        jensenshannon, non_ordinal_qnums(), model_dists, true_dists
     )
 
 
 def calculate_total_variation(
-    model_responses: pd.DataFrame,
-    true_responses: pd.DataFrame,
-    response_maps: dict[QNum, ResponseMap],
-    **kwargs
+    true_dists: dict[QNum, FrequencyDist],
+    model_dists: dict[QNum, FrequencyDist],
 ) -> dict[QNum, float]:
     """Calculate Total Variation distance for all questions with a non-ordinal response scale."""
     return _calculate_distance_metric(
-        total_variation_distance,
-        non_ordinal_qnums(),
-        model_responses,
-        true_responses,
-        response_maps,
-        **kwargs
+        total_variation_distance, non_ordinal_qnums(), model_dists, true_dists
     )
 
 
-def calculate_variance(
-    responses: pd.DataFrame, response_maps: dict[QNum, ResponseMap], **kwargs
-):
-    dists = prepare_distributions_single(responses, response_maps, **kwargs)
-    qnums = set(dists.keys()).intersection(ordinal_qnums())
+def calculate_variance(dists: dict[QNum, FrequencyDist]):
     """Calculate normalised variance for all questions with an ordinal response scale."""
+    qnums = set(dists.keys()).intersection(ordinal_qnums())
     variances = {}
     for qnum in qnums:
         support, weights = get_sorted_support_and_obs_single(dists[qnum])
@@ -68,15 +51,10 @@ def calculate_variance(
 def _calculate_distance_metric(
     metric_fn: Callable,
     qnum_subset: list[QNum],
-    model_responses: pd.DataFrame,
-    true_responses: pd.DataFrame,
-    response_maps: dict[QNum, ResponseMap],
-    **kwargs
+    true_dists: dict[QNum, FrequencyDist],
+    model_dists: dict[QNum, FrequencyDist],
 ):
     """Calculate a distance metric for all questions in the given subset."""
-    model_dists, true_dists = prepare_distributions(
-        model_responses, true_responses, response_maps, **kwargs
-    )
     qnums = set(model_dists.keys()).intersection(true_dists).intersection(qnum_subset)
 
     distances = {}
@@ -89,16 +67,10 @@ def _calculate_distance_metric(
 
 
 def calculate_wasserstein(
-    model_responses: pd.DataFrame,
-    true_responses: pd.DataFrame,
-    response_maps: dict[QNum, ResponseMap],
-    **kwargs
+    true_dists: dict[QNum, FrequencyDist], model_dists: dict[QNum, FrequencyDist]
 ) -> dict[QNum, float]:
     """Calculate Wasserstein distance for all questions with an ordinal response scale."""
 
-    model_dists, true_dists = prepare_distributions(
-        model_responses, true_responses, response_maps, **kwargs
-    )
     qnums = (
         set(true_dists.keys())
         .intersection(model_dists.keys())
@@ -151,18 +123,11 @@ def total_variation_distance(p: np.ndarray, q: np.ndarray) -> float:
     return 0.5 * np.abs(p - q).sum()
 
 
-def calculate_misalignment(
-    model_responses: pd.DataFrame,
-    true_responses: pd.DataFrame,
-    response_maps: dict[QNum, ResponseMap],
-    **kwargs
+def calculate_dissimilarity(
+    model_dists: dict[QNum, FrequencyDist], true_dists: dict[QNum, FrequencyDist]
 ) -> dict[QNum, float]:
-    wasserstein = calculate_wasserstein(
-        model_responses, true_responses, response_maps, **kwargs
-    )
-    total_variation = calculate_total_variation(
-        model_responses, true_responses, response_maps, **kwargs
-    )
+    wasserstein = calculate_wasserstein(model_dists, true_dists)
+    total_variation = calculate_total_variation(model_dists, true_dists)
     return {**wasserstein, **total_variation}
 
 

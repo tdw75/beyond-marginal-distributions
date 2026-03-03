@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 ModelName = str
 AdapterName = str
+DimensionName = str
 
 bias_to_subreddit: dict[AdapterName, str] = {
     "liberal": "AskALiberal",

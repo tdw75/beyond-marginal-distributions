@@ -6,50 +6,50 @@ from src.analysis.metrics import calculate_wasserstein, calculate_jensen_shannon
 
 
 @pytest.mark.skip(reason="JS distance no longer used in project")
-def test_js_identical(all_responses, response_maps):
+def test_js_identical(all_responses):
     model, _ = all_responses
     true, _ = all_responses
-    result = calculate_jensen_shannon(model, true, response_maps)
+    result = calculate_jensen_shannon(model, true)
     assert result["Q1"] == 0.0
     assert result["Q2"] == 0.0
 
 
 @pytest.mark.skip(reason="JS distance no longer used in project")
-def test_js_different(all_responses, response_maps):
+def test_js_different(all_responses):
     model, true = all_responses
-    result = calculate_jensen_shannon(model, true, response_maps)
+    result = calculate_jensen_shannon(model, true)
     assert result["Q1"] == 0.0
     assert 0 < result["Q2"] < 1
 
 
 @pytest.mark.skip(reason="JS distance no longer used in project")
-def test_jensen_shannon_symmetry(all_responses, response_maps):
+def test_jensen_shannon_symmetry(all_responses):
 
     model, true = all_responses
-    result1 = calculate_jensen_shannon(model, true, response_maps)
-    result2 = calculate_jensen_shannon(true, model, response_maps)
+    result1 = calculate_jensen_shannon(model, true)
+    result2 = calculate_jensen_shannon(true, model)
     assert result1["Q1"] == result2["Q1"]
     assert result1["Q2"] == result2["Q2"]
 
 
-def test_wasserstein_identical(all_responses, response_maps):
+def test_wasserstein_identical(all_responses):
     model, _ = all_responses
     true, _ = all_responses
-    result = calculate_wasserstein(model, true, response_maps)
+    result = calculate_wasserstein(model, true)
     assert result["Q1"] == 0.0
     assert result["Q2"] == 0.0
 
 
 def test_wasserstein_different(all_responses, response_maps):
     model, true = all_responses
-    result = calculate_wasserstein(model, true, response_maps)
+    result = calculate_wasserstein(model, true)
     assert result["Q1"] == 0.0
     assert 0 < result["Q2"] < 1
 
 
-def test_wasserstein_normalization(extreme_responses, response_maps):
+def test_wasserstein_normalisation(extreme_responses, response_maps):
     model, true = extreme_responses
-    result = calculate_wasserstein(model, true, response_maps)
+    result = calculate_wasserstein(model, true)
     assert np.isclose(result["Q1"], 1)
 
 
@@ -63,20 +63,27 @@ def response_maps():
 
 @pytest.fixture
 def all_responses():
+    n1 = 6
+    n2 = 5
     model = {
-        "Q1": pd.Series([-1, 1, 1, 2, 2, 2, 2]),
-        "Q2": pd.Series([1, 3, 3, 3, 4]),
+        "Q1": {key: freq / n1 for key, freq in zip([1, 2], [2, 4])},
+        "Q2": {key: freq / n2 for key, freq in zip([1, 2, 3, 4], [1, 0, 3, 1])},
     }
     true = {
-        "Q1": pd.Series([1, 1, 2, 2, 2, 2]),  # identical to model
-        "Q2": pd.Series([1, 1, 1, 4, 4]),  # different from model
+        "Q1": {
+            key: freq / n1 for key, freq in zip([1, 2], [2, 4])
+        },  # identical to model
+        "Q2": {
+            key: freq / n2 for key, freq in zip([1, 2, 3, 4], [3, 0, 0, 2])
+        },  # different from model
     }
-    return pd.DataFrame(model), pd.DataFrame(true)
+    return model, true
 
 
 @pytest.fixture
 def extreme_responses():
-    # For normalization test: all mass at min vs all at max
-    model = {"Q1": pd.Series([1] * 10)}
-    true = {"Q1": pd.Series([4] * 10)}
-    return pd.DataFrame(model), pd.DataFrame(true)
+    # For normalisation test: all mass at min vs all at max
+    model = {"Q1": {key: freq / 10 for key, freq in zip([1, 2, 3, 4], [10, 0, 0, 0])}}
+    true = {"Q1": {key: freq / 10 for key, freq in zip([1, 2, 3, 4], [0, 0, 0, 10])}}
+    return model, true
+    # return pd.Series(model), pd.Series(true) # also works with DataFrame/Series instead of dict

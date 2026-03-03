@@ -11,17 +11,16 @@ sys.path.append(os.getcwd())
 
 from src.analysis.aggregations import (
     collate_subgroup_data,
-    aggregate_by_category,
+    aggregate_data_by_category,
     DataDict,
     persist_data_dict,
 )
-from src.analysis.io import create_subdirectory
+from src.analysis.io import create_subdirectory, save_response_distributions
 from src.analysis.marginals import (
-    generate_cross_comparison,
-    save_response_distributions,
     generate_modal_collapse_analysis,
     generate_invalid_response_analysis,
     compare_marginal_response_dists,
+    get_response_distributions,
 )
 from src.analysis.responses import get_base_model_responses
 from src.data.variables import remap_response_maps
@@ -71,19 +70,20 @@ def main(experiment_name: str, root_directory: str = ""):
         n: collate_subgroup_data(true, sim, base, s, all_qnums)
         for n, s in subgroups.items()
     }
+    print(f"Aggregated subgroup data, {time.time() - start:.1f} seconds")
     dimension_data: DataDict = {
         n: collate_subgroup_data(true, sim, base, s, all_qnums)
         for n, s in dimensions.items()
-    }
-    category_data = aggregate_by_category(subgroup_data, base, true)
-    print(f"Aggregated data, {time.time() - start:.1f} seconds")
+    }  # todo: construct dimension data from subgroup data instead of re-collating
+    print(f"Aggregated dimension data, {time.time() - start:.1f} seconds")
+    category_data = aggregate_data_by_category(subgroup_data, base, true)
+    print(f"Aggregated category data, {time.time() - start:.1f} seconds")
     metrics_directory = create_subdirectory(simulation_directory, "metrics")
     data_directory = create_subdirectory(simulation_directory, "data")
-    graph_directory = create_subdirectory(simulation_directory, "graphs")
     latex_directory = create_subdirectory(simulation_directory, "latex")
 
     persist_data_dict(subgroup_data, data_directory, "subgroup")
-    persist_data_dict(dimension_data, data_directory, "dimension")
+    # persist_data_dict(dimension_data, data_directory, "dimension")
 
     generate_modal_collapse_analysis(
         subgroup_data, base, metrics_directory, latex_directory
@@ -103,23 +103,17 @@ def main(experiment_name: str, root_directory: str = ""):
         "category": category_data,
     }
 
-    for g, dd in data_dict_map.items():
-        save_response_distributions(
-            dd, create_subdirectory(simulation_directory, "data"), response_map, g
-        )
-
     for grouping, data_dict in data_dict_map.items():
-
-        compare_marginal_response_dists(
-            data_dict, response_map, metrics_directory, grouping
+        dists = {
+            n: get_response_distributions(d, response_map) for n, d in data_dict.items()
+        }
+        save_response_distributions(
+            dists, create_subdirectory(simulation_directory, "data"), grouping
         )
+        compare_marginal_response_dists(dists, metrics_directory, grouping)
         print(
             f"Finished model comparison metrics for {grouping}, {time.time() - start:.1f} seconds"
         )
-        # if grouping != "category":
-        #     generate_cross_comparison(
-        #         data_dict, response_map, graph_directory, grouping
-        #     )
 
 
 if __name__ == "__main__":
