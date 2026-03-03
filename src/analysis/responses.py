@@ -105,6 +105,7 @@ def get_response_distribution_weighted(
     is_include_invalid: bool = False,
 ) -> dict[QNum, FrequencyDist]:
 
+    # todo: add weights for dimension aggregation/distributions
     dists = {}
     weights = responses["weight"]
     for qnum in set(responses.columns).intersection(response_maps.keys()) - {"weight"}:

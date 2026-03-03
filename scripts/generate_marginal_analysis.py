@@ -74,17 +74,16 @@ def main(experiment_name: str, root_directory: str = ""):
     dimension_data: DataDict = {
         n: collate_subgroup_data(true, sim, base, s, all_qnums)
         for n, s in dimensions.items()
-    }
+    }  # todo: construct dimension data from subgroup data instead of re-collating
     print(f"Aggregated dimension data, {time.time() - start:.1f} seconds")
     category_data = aggregate_data_by_category(subgroup_data, base, true)
     print(f"Aggregated category data, {time.time() - start:.1f} seconds")
     metrics_directory = create_subdirectory(simulation_directory, "metrics")
     data_directory = create_subdirectory(simulation_directory, "data")
-    graph_directory = create_subdirectory(simulation_directory, "graphs")
     latex_directory = create_subdirectory(simulation_directory, "latex")
 
     persist_data_dict(subgroup_data, data_directory, "subgroup")
-    persist_data_dict(dimension_data, data_directory, "dimension")
+    # persist_data_dict(dimension_data, data_directory, "dimension")
 
     generate_modal_collapse_analysis(
         subgroup_data, base, metrics_directory, latex_directory
