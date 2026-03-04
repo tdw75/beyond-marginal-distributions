@@ -14,6 +14,7 @@ from src.analysis.aggregations import (
     aggregate_data_by_category,
     DataDict,
     persist_data_dict,
+    aggregate_data_by_dimension,
 )
 from src.analysis.io import create_subdirectory, save_response_distributions
 from src.analysis.marginals import (
@@ -24,7 +25,7 @@ from src.analysis.marginals import (
 )
 from src.analysis.responses import get_base_model_responses
 from src.data.variables import remap_response_maps
-from src.demographics.config import dimensions, subgroups
+from src.demographics.config import subgroups
 from src.simulation.experiment import load_experiment
 from src.utils import key_as_int
 
@@ -71,10 +72,7 @@ def main(experiment_name: str, root_directory: str = ""):
         for n, s in subgroups.items()
     }
     print(f"Aggregated subgroup data, {time.time() - start:.1f} seconds")
-    dimension_data: DataDict = {
-        n: collate_subgroup_data(true, sim, base, s, all_qnums)
-        for n, s in dimensions.items()
-    }  # todo: construct dimension data from subgroup data instead of re-collating
+    dimension_data = aggregate_data_by_dimension(subgroup_data, base)
     print(f"Aggregated dimension data, {time.time() - start:.1f} seconds")
     category_data = aggregate_data_by_category(subgroup_data, base, true)
     print(f"Aggregated category data, {time.time() - start:.1f} seconds")
@@ -83,7 +81,6 @@ def main(experiment_name: str, root_directory: str = ""):
     latex_directory = create_subdirectory(simulation_directory, "latex")
 
     persist_data_dict(subgroup_data, data_directory, "subgroup")
-    # persist_data_dict(dimension_data, data_directory, "dimension")
 
     generate_modal_collapse_analysis(
         subgroup_data, base, metrics_directory, latex_directory

@@ -2,13 +2,12 @@ import os
 
 import pandas as pd
 
-from src.analysis.metrics import prepare_distributions_single
 from src.analysis.responses import (
     get_true_responses_for_subgroup,
     get_model_responses_for_subgroup,
     FrequencyDist,
 )
-from src.data.variables import QNum, ResponseMap
+from src.data.variables import QNum
 from src.demographics.base import BaseSubGroup
 from src.demographics.config import categories, category_to_question, dimensions
 from src.simulation.models import AdapterName, ModelName, DimensionName
@@ -45,62 +44,35 @@ def collate_subgroup_data(
     }
 
 
-def aggregate_distributions(
-    dists: dict[AdapterName, dict[QNum, FrequencyDist]],
-    weights: pd.Series | None = None,
-) -> dict[QNum, FrequencyDist]:
+def aggregate_data_by_dimension(subgroup_data: DataDict, base: pd.DataFrame) -> dict:
     """
-    Aggregate response distributions across subgroups for each question,
-    e.g. for each question, calculate the mean distribution across subgroups.
-    returns a dict mapping each question to its aggregated distribution.
-    """
-
-    uniform_weights = pd.Series({adapter: 1 / len(dists) for adapter in dists})
-    weights = weights if weights is not None else uniform_weights
-    weights = weights.reindex(dists.keys())
-
-    aggregated = {}
-    for qnum in next(iter(dists.values())).keys():
-        freq_dists = pd.DataFrame(
-            {k: pd.Series(dists[k][qnum]) for k in weights.keys()}
-        )
-
-        aggregated[qnum] = (freq_dists * weights).sum(axis=1).to_dict()
-    return aggregated
-
-
-def aggregate_distributions_by_dimension(
-    true_data: dict[DimensionName, pd.DataFrame],
-    subgroup_response_dists: DistDict,
-    response_maps: dict[QNum, ResponseMap],
-) -> DistDict:
-    """
-    Aggregate subgroup response distributions by dimension,
+    Aggregate response data across subgroups for each dimension,
     using the provided weights for each subgroup within each dimension.
+    returns a dict mapping each dimension to its aggregated response data for each model.
     """
-    # todo: scratch this approach, just aggregate data by dimension then get dists using a weights column
-    # todo: add base
-    dimension_dists = {
-        d: {m: {} for m in steered_models + ["true"]} for d in dimensions
+    weights = get_survey_weights_for_dimension(subgroup_data)
+    dimension_data: DataDict = {
+        d: {m: pd.DataFrame() for m in steered_models + ["true"]} for d in dimensions
     }
-
     for dim, subgroups in dimensions.items():
-        subgroups = [s.ADAPTER for s in subgroups]
+        for m in ["true"] + steered_models:
 
-        # aggregate true data for dimension first, get empirical weighting
-        dim_true_df = pd.concat(true_data[s] for s in subgroups)
-        dim_counts = pd.Series({s: true_data[s].shape[0] for s in subgroups})
-        dim_weights = dim_counts / dim_counts.sum()  # normalise to sum to 1
-        dimension_dists[dim]["true"] = prepare_distributions_single(
-            dim_true_df, response_maps
-        )
+            names = [s.ADAPTER for s in subgroups]
+            subgroup_dfs = [subgroup_data[s][m] for s in names]
+            if m != "true":
+                subgroup_dfs = [
+                    df.assign(weight=weights[dim][s])
+                    for s, df in zip(names, subgroup_dfs)
+                ]
 
-        # then aggregate model distributions for dimension using weights
-        for model in steered_models:
-            dists = {sg: subgroup_response_dists[sg][model] for sg in subgroups}
-            dimension_dists[dim][model] = aggregate_distributions(dists, dim_weights)
+            dimension_data[dim][m] = pd.concat(subgroup_dfs).reset_index(drop=True)
+        dimension_data[dim]["base"] = base.copy()
+    return dimension_data
 
-    return dimension_dists
+
+def _add_weight_column(df: pd.DataFrame, weight: float) -> pd.DataFrame:
+    df["weight"] = weight
+    return df
 
 
 def aggregate_data_by_category(
@@ -111,17 +83,17 @@ def aggregate_data_by_category(
     cat_dict = {c: {m: [] for m in steered_models + ["true"]} for c in categories}
 
     for cat, qnums in category_to_question.items():
-        qnums = all_qnums.intersection(qnums)
+        cat_qnums = all_qnums.intersection(qnums)
         for sg, sources in data_dict.items():
             for model, df in sources.items():
                 if model == "base":
                     continue
                 elif model == "true":
                     df = true
-                df_loop = df.filter(items=qnums)
+                df_loop = df.filter(items=cat_qnums)
                 df_loop.index = [f"{sg}_{i}" for i in df_loop.index]
                 cat_dict[cat][model].append(df_loop)
-            cat_dict[cat]["base"] = [base.filter(items=qnums)]
+            cat_dict[cat]["base"] = [base.filter(items=cat_qnums)]
 
     cat_dict = {
         c: {m: pd.concat(dfs) for m, dfs in models.items()}
@@ -130,7 +102,38 @@ def aggregate_data_by_category(
     return cat_dict
 
 
+def get_survey_weights_for_dimension(
+    subgroup_data: DataDict,
+) -> dict[DimensionName, dict[str, float]]:
+    converted_weights = {}
+
+    dimension_weights = _get_empirical_dimension_weights(subgroup_data)
+    for dim, weights in dimension_weights.items():
+        converted_weights[dim] = (weights * weights.shape[0]).to_dict()
+
+    return converted_weights
+
+
+def _get_empirical_dimension_weights(
+    subgroup_data: DataDict,
+) -> dict[DimensionName, pd.Series]:
+    """
+    Get weights for each dimension based on the empirical distribution of subgroups in the data.
+    For example, if the "age" dimension has 3 subgroups (18-29, 30-44, 45+), and the data has 50% 18-29, 30% 30-44, and 20% 45+, then the weights for the "age" dimension would be [0.5, 0.3, 0.2].
+    """
+    dimension_weights = {}
+    for dim_name, dim_subgroups in dimensions.items():
+        dim_sg_names = [sg.ADAPTER for sg in dim_subgroups]
+        subgroup_counts = pd.Series(0, index=dim_sg_names)
+        for sg in dim_sg_names:
+            subgroup_counts[sg] = subgroup_data[sg]["true"].shape[0]
+        total = subgroup_counts.sum()
+        dimension_weights[dim_name] = subgroup_counts / total
+    return dimension_weights
+
+
 def persist_data_dict(data_dict: DataDict, directory: str, grouping: str):
+    # todo: move to io
     for sg, models in data_dict.items():
         for model, df in models.items():
             if model != "base":
