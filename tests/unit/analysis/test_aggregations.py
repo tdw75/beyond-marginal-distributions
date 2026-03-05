@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from simulation.models import DimensionName
+from src.simulation.models import DimensionName
 from src.analysis.aggregations import (
     _get_empirical_dimension_weights,
     get_survey_weights_for_dimension,
