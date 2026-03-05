@@ -15,6 +15,7 @@ from src.analysis.correlations import (
     lower_bound,
     upper_bound,
     compare_correlation_structures,
+    compare_correlation_structures_bootstrap,
 )
 from src.analysis.io import load_response_maps, save_latex_table
 from src.analysis.responses import (
@@ -50,8 +51,17 @@ def main(experiment_name: str, root_directory: str = ""):
         minimums,
         experiment_name,
         experiment.files["directory"],
-    )
+    )  # actual values (from simulation)
     print(f"Computed correlation, {time.time() - start:.1f} seconds")
+    bootstrap_metrics = compare_correlation_structures_bootstrap(
+        subgroup_data,
+        diameters,
+        minimums,
+        experiment_name,
+        experiment.files["directory"],
+        n_bootstrap=1000,  # todo: parametrise in experiment config
+    )
+    print(f"Computed bootstrap intervals, {time.time() - start:.1f} seconds")
     lb = lower_bound(experiment_name, experiment.files["directory"])
     print(f"Computed lower bound, {time.time() - start:.1f} seconds")
     ub = upper_bound(diameters, minimums, subgroup_data)
@@ -66,6 +76,14 @@ def main(experiment_name: str, root_directory: str = ""):
                 experiment.files["directory"], "results", experiment_name, "latex"
             ),
             f"{grouping}-correlation_metrics.tex",
+            float_format="%.3f",
+        )
+        save_latex_table(
+            bootstrap_metrics[grouping],
+            os.path.join(
+                experiment.files["directory"], "results", experiment_name, "latex"
+            ),
+            f"{grouping}-bootstrap_correlation_metrics.tex",
             float_format="%.3f",
         )
 

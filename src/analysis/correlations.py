@@ -1,4 +1,5 @@
 import os
+import time
 from functools import lru_cache
 
 import numpy as np
@@ -19,7 +20,7 @@ def compare_correlation_structures(
     minimums: pd.Series,
     filename: str,
     root_directory: str = "../data_files",
-):
+) -> dict[str, dict[str, float]]:
     """
     Compare correlation structures between steered models (persona prompting and OpinionGPT) and true responses.
     This results in a comparison of question-level and category-level correlation matrices.
@@ -57,6 +58,77 @@ def compare_correlation_structures(
                 true, np.array(corr_matrices[model])
             )
     return metrics
+
+
+def compare_correlation_structures_bootstrap(
+    subgroup_data: DataDict,
+    diameters: pd.Series,
+    minimums: pd.Series,
+    filename: str,
+    root_directory: str = "../data_files",
+    n_bootstrap: int = 10,
+) -> dict[str, pd.DataFrame]:
+    """
+    Compare correlation structures between steered models (persona prompting and OpinionGPT) and true responses, using bootstrap resampling to estimate confidence intervals.
+    This results in a comparison of question-level and category-level correlation matrices.
+    """
+    start = time.time()
+    question_metrics = {"opinion_gpt": [], "persona": []}
+    category_metrics = {"opinion_gpt": [], "persona": []}
+    for i in range(n_bootstrap):
+        bootstrapped_data = bootstrap_subgroup_data(subgroup_data)
+        if (i + 1) % 10 == 0:
+            print(
+                f"Bootstrap iteration {i+1}/{n_bootstrap} finished, {time.time() - start:.1f} seconds"
+            )
+        metrics = compare_correlation_structures(
+            bootstrapped_data, diameters, minimums, filename, root_directory
+        )
+        for model in steered_models:
+            question_metrics[model].append(pd.Series(metrics["question"][model]))
+            category_metrics[model].append(pd.Series(metrics["category"][model]))
+
+    return {
+        "question": get_confidence_intervals(question_metrics),
+        "category": get_confidence_intervals(category_metrics),
+    }
+
+
+def get_confidence_intervals(metrics: dict[str, list[pd.DataFrame]]) -> pd.DataFrame:
+
+    def _get_quantiles(df: pd.DataFrame) -> list:
+        return [list(zip(df.quantile(0.25).round(3), df.quantile(0.975).round(3)))]
+
+    ci = []
+    for mod in steered_models:
+        concatenated = pd.concat(metrics[mod], axis=1).T
+        ci.append(
+            pd.DataFrame(
+                _get_quantiles(concatenated), columns=concatenated.columns, index=[mod]
+            )
+        )
+    return pd.concat(ci).T
+
+
+def bootstrap_subgroup_data(subgroup_data: DataDict) -> DataDict:
+    """Bootstrap resample the subgroup data by sampling with replacement within each subgroup."""
+    bootstrapped_data = {}
+    for sg, dd in subgroup_data.items():
+        bootstrapped_data[sg] = {}
+        for model, df in dd.items():
+            if model == "base":
+                continue
+            elif model == "true":
+                bootstrapped_data[sg][model] = df
+            else:
+                n = df.shape[0]  # should always be 500 but just in case, maybe assert
+                bootstrapped_data[sg][model] = df.apply(
+                    lambda col: col.iloc[
+                        np.random.choice(n, size=n, replace=True)
+                    ].values
+                ).reset_index(drop=True)
+
+    return bootstrapped_data
 
 
 def save_correlation_metrics(
@@ -101,8 +173,8 @@ def lower_bound(filename: str, root_directory: str = "../data_files") -> tuple:
 
         metrics_df = pd.DataFrame(metrics).T
 
-        lb_mean[grouping] = metrics_df.mean().round(4).to_dict()
-        lb_std[grouping] = metrics_df.std().round(4).to_dict()
+        lb_mean[grouping] = metrics_df.mean().round(3).to_dict()
+        lb_std[grouping] = metrics_df.std().round(3).to_dict()
 
     return lb_mean, lb_std
 
@@ -122,8 +194,8 @@ def upper_bound(
                 half_1, half_2, diameters, minimums, grouping
             )
         metrics_df = pd.DataFrame(metrics).T
-        ub_mean[grouping] = metrics_df.mean().round(4).to_dict()
-        ub_std[grouping] = metrics_df.std().round(4).to_dict()
+        ub_mean[grouping] = metrics_df.mean().round(3).to_dict()
+        ub_std[grouping] = metrics_df.std().round(3).to_dict()
 
     return ub_mean, ub_std
 
