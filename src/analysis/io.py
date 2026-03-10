@@ -4,7 +4,7 @@ import os
 import pandas as pd
 
 from src.analysis.aggregations import DistDict
-from src.analysis.visualisations import RENAME_MAP, reformat_index
+from src.analysis.visualisations import reformat_index
 from src.data.variables import QNum, ResponseMap, remap_response_maps
 from src.utils import key_as_int
 
@@ -30,9 +30,17 @@ def load_response_maps(directory: str = "../data_files") -> dict[QNum, ResponseM
     return response_map
 
 
-def save_latex_table(df: pd.DataFrame, directory: str, name: str, **kwargs):
-    df = df.rename(columns=RENAME_MAP, errors="ignore")
+def save_latex_table(
+    df: pd.DataFrame,
+    directory: str,
+    name: str,
+    column_names: dict[str, str] = None,
+    index_names: dict[str, str] = None,
+    **kwargs,
+):
     df.index = reformat_index(df.index)
+    df.columns = reformat_index(df.columns)
+    df = df.rename(columns=column_names or {}, index=index_names or {}, errors="ignore")
     df.to_latex(os.path.join(directory, name), **kwargs)
 
 

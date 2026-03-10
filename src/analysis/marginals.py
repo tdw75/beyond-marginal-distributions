@@ -13,7 +13,7 @@ from src.analysis.metrics import (
     prepare_distributions_single,
 )
 from src.analysis.responses import FrequencyDist
-from src.analysis.visualisations import plot_distance_heatmap
+from src.analysis.visualisations import plot_distance_heatmap, RENAME_MAP
 from src.data.variables import QNum, ResponseMap
 from src.simulation.models import ModelName, AdapterName
 
@@ -82,7 +82,12 @@ def generate_modal_collapse_analysis(
         qnums = find_degenerate_questions(deg)
         json.dump(qnums, f2)
 
-    save_latex_table(counts.T, latex_directory, "degenerate-counts-table.tex")
+    save_latex_table(
+        counts.T,
+        latex_directory,
+        "degenerate-counts-table.tex",
+        column_names=RENAME_MAP,
+    )
 
 
 def find_degenerate_dists(data: dict, base: pd.DataFrame) -> tuple[dict, pd.DataFrame]:
@@ -184,6 +189,7 @@ def generate_invalid_response_analysis(
         invalid_totals,
         latex_directory,
         "invalid-counts-total.tex",
+        column_names=RENAME_MAP,
         float_format="%.3f",
     )
     invalid_totals.to_csv(os.path.join(metrics_directory, "invalid-counts-total.csv"))

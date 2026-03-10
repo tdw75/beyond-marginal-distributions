@@ -261,8 +261,8 @@ def calculate_correlation_metrics(
     x, y = true[iu], model[iu]
 
     corr_metrics = {}
-    r, _ = pearsonr(x, y)
-    corr_metrics["pearson_r"] = r.round(3)
+    rho, _ = pearsonr(x, y)
+    corr_metrics["pearson_r"] = rho.round(3)
     corr_metrics["rmse"] = np.round(rmse(x, y), 3)
     return corr_metrics
 

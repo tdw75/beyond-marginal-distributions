@@ -24,6 +24,7 @@ from src.analysis.responses import (
     sort_by_qnum_index,
 )
 from src.analysis.results import load_data_dict
+from src.analysis.visualisations import RENAME_MAP
 from src.simulation.experiment import load_experiment
 
 
@@ -67,17 +68,21 @@ def main(experiment_name: str, root_directory: str = ""):
     ub = upper_bound(diameters, minimums, subgroup_data)
     print(f"Computed upper bound, {time.time() - start:.1f} seconds")
     for grouping, metrics in corr_metrics.items():
-        metrics["Lower"] = lb[0][grouping]
-        metrics["Upper"] = ub[0][grouping]
+        metrics["Permutation Null"] = lb[0][grouping]
+        metrics["Split Half"] = ub[0][grouping]
 
         save_latex_table(
-            pd.DataFrame(metrics),
+            pd.DataFrame(metrics).T,
             os.path.join(
                 experiment.files["directory"], "results", experiment_name, "latex"
             ),
             f"{grouping}-correlation_metrics.tex",
+            column_names={"Pearson R": "Pearson $\rho$", "Rmse": "RMSE"},
+            index_names=RENAME_MAP,
             float_format="%.3f",
-        )
+            index=True,
+            escape=False,
+        )  # todo: put into same table
         save_latex_table(
             bootstrap_metrics[grouping],
             os.path.join(
