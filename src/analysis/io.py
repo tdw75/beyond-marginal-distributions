@@ -4,9 +4,8 @@ import os
 import pandas as pd
 
 from src.analysis.aggregations import DistDict
-from src.analysis.visualisations import reformat_index
 from src.data.variables import QNum, ResponseMap, remap_response_maps
-from src.utils import key_as_int
+from src.utils import key_as_int, reformat_index
 
 
 def create_subdirectory(directory: str, subdirectory: str) -> str:
@@ -49,3 +48,11 @@ def save_response_distributions(dists: DistDict, data_directory: str, grouping: 
         os.path.join(data_directory, f"{grouping}-response-dists.json"), "w"
     ) as f:
         json.dump(dists, f)
+
+
+RENAME_MAP = {
+    "opinion_gpt": "OpinionGPT",
+    "persona": "Persona Prompting",
+    "base": "Base Phi 3",
+    "true": "True Data",
+}
