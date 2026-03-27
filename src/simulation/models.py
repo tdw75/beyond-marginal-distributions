@@ -35,12 +35,22 @@ bias_to_subreddit: dict[AdapterName, str] = {
     "old_people": "AskOldPeople",
     # "teenager": "AskTeenagers",
 }
+
 adapters: list[AdapterName] = list(bias_to_subreddit.keys())
+
+
+def replace_adapter_name(adapter: AdapterName, base_model_name: str):
+    """Convert adapter name to the correct format for the given base model."""
+    if base_model_name == "llama" and adapter == "latin_america":
+        return "latin_american"
+    else:
+        return adapter
 
 
 MODEL_DIRECTORY = {
     "phi": "unsloth/Phi-3-mini-4k-instruct",
-    "llama": "meta-llama/Meta-Llama-3-8B-Instruct",
+    "llama": "meta-llama/Llama-2-7b-chat-hf",
+    # "llama3": "meta-llama/Meta-Llama-3-8B-Instruct",
 }
 
 
@@ -76,6 +86,10 @@ class ModelConfig(BaseModel):
     def is_phi_model(self):
         return bool(re.match(r"^.+/phi.*", self.model_id, re.IGNORECASE))
 
+    @property
+    def is_llama_model(self):
+        return bool(re.match(r"^.+/llama.*", self.model_id, re.IGNORECASE))
+
     def change_subgroup(self, subgroup: str):
         if subgroup in adapters + [None]:
             self.subgroup = subgroup
@@ -108,9 +122,11 @@ def load_opinion_gpt(model: PreTrainedModel, config: ModelConfig) -> PeftModel:
         model, lora_id.format(adapter=default_adapter), adapter_name=default_adapter
     ).to(config.device)
 
-    for adapter in adapters[1:]:  # all adapters loaded to be accessed as needed
+    for adapter in adapters[1:]:
+        # llama has different adapter name for latin america, use canonical 'latin_america' downstream
+        name = replace_adapter_name(adapter, config.base_model_name)
         logger.info(f"Loading adapter: {adapter}")
-        model.load_adapter(lora_id.format(adapter=adapter), adapter)
+        model.load_adapter(lora_id.format(adapter=name), adapter)
 
     return model
 
@@ -127,6 +143,8 @@ def _get_lora_id(base_model_name: str) -> str:
 def load_base(config: ModelConfig) -> tuple[PreTrainedModel, PreTrainedTokenizer]:
     model = AutoModelForCausalLM.from_pretrained(config.model_id, torch_dtype="auto")
     tokenizer = AutoTokenizer.from_pretrained(config.model_id, padding_side="left")
+    if config.is_llama_model:
+        tokenizer.chat_template = LLAMA2_TOKENIZER_TEMPLATE
     # if is_phi_model(model_id):
     #     tokenizer.chat_template = PHI_TOKENIZER_FORMAT
     logger.info(f"Successfully loaded model: {config.model_id}")
@@ -151,6 +169,29 @@ def change_adapter(model: PeftModel, target_adapter: str) -> PeftModel:
     return model
 
 
-PHI_TOKENIZER_FORMAT = """
-{% for message in messages %}\n{% if message['role'] == 'user' %}\n{{ '<|user|>\n' + message['content'] + eos_token }}\n{% elif message['role'] == 'system' %}\n{{ '<|system|>\n' + message['content'] + eos_token }}\n{% elif message['role'] == 'assistant' %}\n{{ '<|assistant|>\n'  + message['content'] + eos_token }}\n{% endif %}\n{% if loop.last and add_generation_prompt %}\n{{ '<|assistant|>' }}\n{% endif %}\n{% endfor %}
-"""
+PHI_TOKENIZER_TEMPLATE = (
+    "{% for message in messages %}\n"
+    "{% if message['role'] == 'user' %}\n"
+    "{{ '<|user|>\n' + message['content'] + eos_token }}\n"
+    "{% elif message['role'] == 'system' %}\n"
+    "{{ '<|system|>\n' + message['content'] + eos_token }}"
+    "\n{% elif message['role'] == 'assistant' %}\n"
+    "{{ '<|assistant|>\n'  + message['content'] + eos_token }}\n"
+    "{% endif %}\n{% if loop.last and add_generation_prompt %}\n"
+    "{{ '<|assistant|>' }}\n"
+    "{% endif %}\n"
+    "{% endfor %}"
+)
+
+
+LLAMA2_TOKENIZER_TEMPLATE = (
+    "{% for message in messages %}"
+    "{% if message['role'] == 'user' %}"
+    "{{ bos_token + '[INST] ' + message['content'] + ' [/INST]' }}"
+    "{% elif message['role'] == 'system' %}"
+    "{{ '<<SYS>>\\n' + message['content'] + '\\n<</SYS>>\\n\\n' }}"
+    "{% elif message['role'] == 'assistant' %}"
+    "{{ ' ' + message['content'] + ' ' + eos_token }}"
+    "{% endif %}"
+    "{% endfor %}"
+)
